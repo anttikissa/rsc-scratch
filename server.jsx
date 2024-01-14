@@ -4,27 +4,72 @@ import escapeHtml from 'escape-html'
 
 const server = createServer(async (req, res) => {
 	const author = 'Jae Doe'
-	const postContent = await readFile('./posts/hello-world.txt', 'utf-8')
+	const postContent = [
+		await readFile('./posts/hello-world.txt', 'utf-8'),
+		await readFile('./posts/vacation-time.txt', 'utf-8'),
+	]
 
-	sendHTML(res, <BlogPostPage author={author} postContent={postContent} />)
+	// let content = (
+	// 	<BlogPostPage postSlug={'hello-world'} postContent={postContent} />
+	// )
+
+	let content = (
+		<BlogLayout>
+			<BlogIndexPage
+				postSlugs={['hello-world', 'vacation-time']}
+				postContents={postContent}
+			/>
+		</BlogLayout>
+	)
+
+	sendHTML(res, content)
 })
 
-function BlogPostPage({ postContent, author }) {
+function BlogLayout({ children }) {
+	const author = 'Jae Doe'
 	return (
 		<html>
 			<head>
 				<title>My Blog</title>
 			</head>
 			<body>
-				<h1 className="foo bar zot">Testing</h1>
 				<nav>
 					<a href="/">Home</a>
 					<hr />
 				</nav>
-				<article>{postContent}</article>
+				<main>{children}</main>
 				<Footer author={author} />
 			</body>
 		</html>
+	)
+}
+
+function BlogIndexPage({ postSlugs, postContents }) {
+	return (
+		<section>
+			<h1>Welcome to blog</h1>
+			<div>
+				{postSlugs.map((postSlug, index) => (
+					<section key={postSlug}>
+						<h2>
+							<a href={'/' + postSlug}>{postSlug}</a>
+						</h2>
+						<article>{postContents[index]}</article>
+					</section>
+				))}
+			</div>
+		</section>
+	)
+}
+
+function BlogPostPage({ postSlug, postContent }) {
+	return (
+		<section>
+			<h2>
+				<a href={'/' + postSlug}>{postSlug}</a>
+			</h2>
+			<article>{postContent}</article>
+		</section>
 	)
 }
 
