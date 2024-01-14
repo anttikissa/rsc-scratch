@@ -6,8 +6,8 @@ import sanitizeFilename from 'sanitize-filename'
 const server = createServer(async (req, res) => {
 	try {
 		const url = new URL(req.url, `http://${req.headers.host}`)
-		const page = await matchRoute(url)
-		sendHTML(res, <BlogLayout>{page}</BlogLayout>)
+		const page = <Router url={url} />
+		sendHTML(res, page)
 	} catch (err) {
 		console.error(err)
 		res.statusCode = err.statusCode ?? 500
@@ -15,34 +15,15 @@ const server = createServer(async (req, res) => {
 	}
 })
 
-async function matchRoute(url) {
+function Router({ url }) {
+	let page
 	if (url.pathname === '/') {
-		const postFiles = await readdir('./posts')
-		const postSlugs = postFiles.map((file) =>
-			file.slice(0, file.lastIndexOf('.'))
-		)
-		const postContents = await Promise.all(
-			postSlugs.map((slug) =>
-				readFile('./posts/' + slug + '.txt', 'utf8')
-			)
-		)
-		return (
-			<BlogIndexPage postSlugs={postSlugs} postContents={postContents} />
-		)
+		page = <BlogIndexPage />
 	} else {
 		const postSlug = sanitizeFilename(url.pathname.slice(1))
-		try {
-			const postContent = await readFile(
-				'./posts/' + postSlug + '.txt',
-				'utf8'
-			)
-			return (
-				<BlogPostPage postSlug={postSlug} postContent={postContent} />
-			)
-		} catch (err) {
-			throwNotFound(err)
-		}
+		page = <Post slug={postSlug} />
 	}
+	return <BlogLayout>{page}</BlogLayout>
 }
 
 function throwNotFound(cause) {
@@ -70,31 +51,38 @@ function BlogLayout({ children }) {
 	)
 }
 
-function BlogIndexPage({ postSlugs, postContents }) {
+async function BlogIndexPage() {
+	const postFiles = await readdir('./posts')
+	const postSlugs = postFiles.map((file) =>
+		file.slice(0, file.lastIndexOf('.'))
+	)
+
 	return (
 		<section>
 			<h1>Welcome to blog</h1>
 			<div>
-				{postSlugs.map((postSlug, index) => (
-					<section key={postSlug}>
-						<h2>
-							<a href={'/' + postSlug}>{postSlug}</a>
-						</h2>
-						<article>{postContents[index]}</article>
-					</section>
+				{postSlugs.map((slug, index) => (
+					<Post key={slug} slug={slug} />
 				))}
 			</div>
 		</section>
 	)
 }
 
-function BlogPostPage({ postSlug, postContent }) {
+async function Post({ slug }) {
+	let content
+	try {
+		content = await readFile('./posts/' + slug + '.txt', 'utf8')
+	} catch (err) {
+		throwNotFound(err)
+	}
+
 	return (
 		<section>
 			<h2>
-				<a href={'/' + postSlug}>{postSlug}</a>
+				<a href={'/' + slug}>{slug}</a>
 			</h2>
-			<article>{postContent}</article>
+			<article>{content}</article>
 		</section>
 	)
 }
@@ -112,13 +100,16 @@ function Footer({ author }) {
 	)
 }
 
-function renderJSXToHTML(jsx) {
+async function renderJSXToHTML(jsx) {
 	if (typeof jsx === 'string' || typeof jsx === 'number') {
 		return escapeHtml(jsx)
 	} else if (jsx == null || typeof jsx === 'boolean') {
 		return ''
 	} else if (Array.isArray(jsx)) {
-		return jsx.map(renderJSXToHTML).join('')
+		const childHtmls = await Promise.all(
+			jsx.map((child) => renderJSXToHTML(child))
+		)
+		return childHtmls.join('')
 	} else if (typeof jsx === 'object') {
 		if (jsx.$$typeof === Symbol.for('react.element')) {
 			if (typeof jsx.type === 'string') {
@@ -137,16 +128,19 @@ function renderJSXToHTML(jsx) {
 					}
 				}
 				html += '>'
-				html += renderJSXToHTML(jsx.props.children)
+				html += await renderJSXToHTML(jsx.props.children)
 				html += '</' + jsx.type + '>'
 				return html
 			} else if (typeof jsx.type === 'function') {
 				const Component = jsx.type
 				const props = jsx.props
-				const returnedJsx = Component(props)
-				return renderJSXToHTML(returnedJsx)
+				const returnedJsx = await Component(props)
+				return await renderJSXToHTML(returnedJsx)
 			}
-		} else throw new Error('unknown object')
+		} else {
+			log('unknown object', jsx, typeof jsx)
+			throw new Error('unknown object')
+		}
 	} else {
 		log('jsx not implemented', jsx, typeof jsx)
 		throw new Error('not implemented')
@@ -155,8 +149,8 @@ function renderJSXToHTML(jsx) {
 
 const log = (...args) => console.log(...args)
 
-function sendHTML(res, html) {
-	let output = renderJSXToHTML(html)
+async function sendHTML(res, html) {
+	let output = await renderJSXToHTML(html)
 
 	res.writeHead(200, {
 		'Content-Type': 'text/html',
