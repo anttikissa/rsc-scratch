@@ -13,6 +13,7 @@ const server = createServer(async (req, res) => {
 				<title>My Blog</title>
 			</head>
 			<body>
+				<h1 className="foo bar zot">Testing</h1>
 				<nav>
 					<a href="/">Home</a>
 					<hr />
@@ -49,7 +50,9 @@ function renderJSXToHTML(jsx) {
 					html += ' '
 					html += propName
 					html += '='
+					html += '"'
 					html += escapeHtml(jsx.props[propName])
+					html += '"'
 				}
 			}
 			html += '>'
