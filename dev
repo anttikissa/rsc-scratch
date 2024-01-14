@@ -1,3 +1,3 @@
 #!/bin/bash
 
-bun --watch server.js
+bun --watch server.jsx

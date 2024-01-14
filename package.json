@@ -13,6 +13,7 @@
     "prettier": "3.2.2"
   },
   "dependencies": {
-    "escape-html": "1.0.3"
+    "escape-html": "1.0.3",
+    "react": "18.2.0"
   }
 }
