@@ -43,6 +43,8 @@ function BlogLayout({ children }) {
 				<nav>
 					<a href="/">Home</a>
 					<hr />
+					<input type="text" placeholder="Search" />
+					<hr />
 				</nav>
 				<main>{children}</main>
 				<Footer author={author} />
