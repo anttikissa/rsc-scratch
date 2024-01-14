@@ -6,8 +6,11 @@ const server = createServer(async (req, res) => {
 	const author = 'Jae Doe'
 	const postContent = await readFile('./posts/hello-world.txt', 'utf-8')
 
-	sendHTML(
-		res,
+	sendHTML(res, <BlogPostPage author={author} postContent={postContent} />)
+})
+
+function BlogPostPage({ postContent, author }) {
+	return (
 		<html>
 			<head>
 				<title>My Blog</title>
@@ -18,19 +21,25 @@ const server = createServer(async (req, res) => {
 					<a href="/">Home</a>
 					<hr />
 				</nav>
-				<article>{escapeHtml(postContent)}</article>
-				<footer>
-					<hr />
-					<p>
-						<i>
-							(c) {escapeHtml(author)}, {new Date().getFullYear()}
-						</i>
-					</p>
-				</footer>
+				<article>{postContent}</article>
+				<Footer author={author} />
 			</body>
 		</html>
 	)
-})
+}
+
+function Footer({ author }) {
+	return (
+		<footer>
+			<hr />
+			<p>
+				<i>
+					(c) {author}, {new Date().getFullYear()}
+				</i>
+			</p>
+		</footer>
+	)
+}
 
 function renderJSXToHTML(jsx) {
 	if (typeof jsx === 'string' || typeof jsx === 'number') {
@@ -41,24 +50,31 @@ function renderJSXToHTML(jsx) {
 		return jsx.map(renderJSXToHTML).join('')
 	} else if (typeof jsx === 'object') {
 		if (jsx.$$typeof === Symbol.for('react.element')) {
-			let html = '<' + jsx.type
-			for (const propName in jsx.props) {
-				if (
-					jsx.props.hasOwnProperty(propName) &&
-					propName !== 'children'
-				) {
-					html += ' '
-					html += propName
-					html += '='
-					html += '"'
-					html += escapeHtml(jsx.props[propName])
-					html += '"'
+			if (typeof jsx.type === 'string') {
+				let html = '<' + jsx.type
+				for (const propName in jsx.props) {
+					if (
+						jsx.props.hasOwnProperty(propName) &&
+						propName !== 'children'
+					) {
+						html += ' '
+						html += propName
+						html += '='
+						html += '"'
+						html += escapeHtml(jsx.props[propName])
+						html += '"'
+					}
 				}
+				html += '>'
+				html += renderJSXToHTML(jsx.props.children)
+				html += '</' + jsx.type + '>'
+				return html
+			} else if (typeof jsx.type === 'function') {
+				const Component = jsx.type
+				const props = jsx.props
+				const returnedJsx = Component(props)
+				return renderJSXToHTML(returnedJsx)
 			}
-			html += '>'
-			html += renderJSXToHTML(jsx.props.children)
-			html += '</' + jsx.type + '>'
-			return html
 		} else throw new Error('unknown object')
 	} else {
 		log('jsx not implemented', jsx, typeof jsx)
