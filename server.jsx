@@ -1,29 +1,55 @@
 import { createServer } from 'http'
-import { readFile } from 'fs/promises'
+import { readFile, readdir } from 'fs/promises'
 import escapeHtml from 'escape-html'
+import sanitizeFilename from 'sanitize-filename'
 
 const server = createServer(async (req, res) => {
-	const author = 'Jae Doe'
-	const postContent = [
-		await readFile('./posts/hello-world.txt', 'utf-8'),
-		await readFile('./posts/vacation-time.txt', 'utf-8'),
-	]
-
-	// let content = (
-	// 	<BlogPostPage postSlug={'hello-world'} postContent={postContent} />
-	// )
-
-	let content = (
-		<BlogLayout>
-			<BlogIndexPage
-				postSlugs={['hello-world', 'vacation-time']}
-				postContents={postContent}
-			/>
-		</BlogLayout>
-	)
-
-	sendHTML(res, content)
+	try {
+		const url = new URL(req.url, `http://${req.headers.host}`)
+		const page = await matchRoute(url)
+		sendHTML(res, <BlogLayout>{page}</BlogLayout>)
+	} catch (err) {
+		console.error(err)
+		res.statusCode = err.statusCode ?? 500
+		res.end()
+	}
 })
+
+async function matchRoute(url) {
+	if (url.pathname === '/') {
+		const postFiles = await readdir('./posts')
+		const postSlugs = postFiles.map((file) =>
+			file.slice(0, file.lastIndexOf('.'))
+		)
+		const postContents = await Promise.all(
+			postSlugs.map((slug) =>
+				readFile('./posts/' + slug + '.txt', 'utf8')
+			)
+		)
+		return (
+			<BlogIndexPage postSlugs={postSlugs} postContents={postContents} />
+		)
+	} else {
+		const postSlug = sanitizeFilename(url.pathname.slice(1))
+		try {
+			const postContent = await readFile(
+				'./posts/' + postSlug + '.txt',
+				'utf8'
+			)
+			return (
+				<BlogPostPage postSlug={postSlug} postContent={postContent} />
+			)
+		} catch (err) {
+			throwNotFound(err)
+		}
+	}
+}
+
+function throwNotFound(cause) {
+	const notFound = new Error('not found', { cause })
+	notFound.statusCode = 404
+	throw notFound
+}
 
 function BlogLayout({ children }) {
 	const author = 'Jae Doe'
