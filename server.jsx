@@ -4,6 +4,14 @@ import escapeHtml from 'escape-html'
 import sanitizeFilename from 'sanitize-filename'
 
 const server = createServer(async (req, res) => {
+	if (req.url === '/client.js') {
+		res.writeHead(200, {
+			'Content-Type': 'application/javascript',
+		})
+		res.end(await readFile('./client.js', 'utf8'))
+		return
+	}
+
 	try {
 		const url = new URL(req.url, `http://${req.headers.host}`)
 		const page = <Router url={url} />
@@ -48,6 +56,7 @@ function BlogLayout({ children }) {
 				</nav>
 				<main>{children}</main>
 				<Footer author={author} />
+				<script src="/client.js"></script>
 			</body>
 		</html>
 	)

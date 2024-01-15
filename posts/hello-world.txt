@@ -2,4 +2,4 @@ Hello!
 
 This is a post.
 
-I <3 React (Really? Or just testing the escape function?)
+I <3 testing the escape function!
