@@ -1,21 +1,24 @@
 import { createServer } from 'http'
-import { readFile, readdir } from 'fs/promises'
+import { readdir, readFile } from 'fs/promises'
 import escapeHtml from 'escape-html'
 import sanitizeFilename from 'sanitize-filename'
 
 const server = createServer(async (req, res) => {
-	if (req.url === '/client.js') {
-		res.writeHead(200, {
-			'Content-Type': 'application/javascript',
-		})
-		res.end(await readFile('./client.js', 'utf8'))
-		return
-	}
-
 	try {
 		const url = new URL(req.url, `http://${req.headers.host}`)
-		const page = <Router url={url} />
-		sendHTML(res, page)
+
+		if (url.pathname === '/client.js') {
+			res.writeHead(200, {
+				'Content-Type': 'application/javascript',
+			})
+			res.end(await readFile('./client.js', 'utf8'))
+			return
+		} else if (url.searchParams.has('jsx')) {
+			url.searchParams.delete('jsx')
+			await sendJSX(res, <Router url={url} />)
+		} else {
+			await sendHTML(res, <Router url={url} />)
+		}
 	} catch (err) {
 		console.error(err)
 		res.statusCode = err.statusCode ?? 500
@@ -56,7 +59,6 @@ function BlogLayout({ children }) {
 				</nav>
 				<main>{children}</main>
 				<Footer author={author} />
-				<script src="/client.js"></script>
 			</body>
 		</html>
 	)
@@ -111,6 +113,46 @@ function Footer({ author }) {
 	)
 }
 
+async function renderJSXToClientJSX(jsx) {
+	if (
+		typeof jsx === 'string' ||
+		typeof jsx === 'number' ||
+		typeof jsx === 'boolean' ||
+		jsx == null
+	) {
+		return jsx
+	} else if (Array.isArray(jsx)) {
+		return Promise.all(jsx.map((child) => renderJSXToClientJSX(child)))
+	} else if (typeof jsx === 'object') {
+		if (jsx.$$typeof === Symbol.for('react.element')) {
+			if (typeof jsx.type === 'string') {
+				return {
+					...jsx,
+					props: await renderJSXToClientJSX(jsx.props),
+				}
+			} else if (typeof jsx.type === 'function') {
+				const Component = jsx.type
+				const props = jsx.props
+				const returnedJsx = await Component(props)
+				return await renderJSXToClientJSX(returnedJsx)
+			} else {
+				throw new Error('Not implemented')
+			}
+		} else {
+			return Object.fromEntries(
+				await Promise.all(
+					Object.entries(jsx).map(async ([key, value]) => [
+						key,
+						await renderJSXToClientJSX(value),
+					])
+				)
+			)
+		}
+	} else {
+		throw new Error('Not implemented')
+	}
+}
+
 async function renderJSXToHTML(jsx) {
 	if (typeof jsx === 'string' || typeof jsx === 'number') {
 		return escapeHtml(jsx)
@@ -160,13 +202,43 @@ async function renderJSXToHTML(jsx) {
 
 const log = (...args) => console.log(...args)
 
+async function sendJSX(res, jsx) {
+	const clientJSX = await renderJSXToClientJSX(jsx)
+	const clientJSXString = JSON.stringify(clientJSX, stringifyJSX)
+	res.setHeader('Content-Type', 'application/json')
+	res.end(clientJSXString)
+}
+
+function stringifyJSX(key, value) {
+	if (value === Symbol.for('react.element')) {
+		return '$RE'
+	} else if (typeof value === 'string' && value.startsWith('$')) {
+		return '$' + value
+	} else {
+		return value
+	}
+}
+
 async function sendHTML(res, html) {
-	let output = await renderJSXToHTML(html)
+	const htmlOutput = await renderJSXToHTML(html)
+	const pos = htmlOutput.indexOf('</body>')
+
+	let result = htmlOutput.slice(0, pos)
+	result += `<script type="importmap">
+	  {
+	    "imports": {
+	      "react": "https://esm.sh/react@canary",
+	      "react-dom/client": "https://esm.sh/react-dom@canary/client"
+	    }
+	  }
+	</script>`
+	result += `<script type="module" src="client.js"></script>`
+	result += htmlOutput.slice(pos)
 
 	res.writeHead(200, {
 		'Content-Type': 'text/html',
 	})
-	res.end(output)
+	res.end(result)
 }
 
 server.listen(3000, () => {
