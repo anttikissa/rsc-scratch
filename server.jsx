@@ -7,11 +7,11 @@ const server = createServer(async (req, res) => {
 	try {
 		const url = new URL(req.url, `http://${req.headers.host}`)
 
-		if (url.pathname === '/client.js') {
+		if (url.pathname === '/client.js' || url.pathname === '/react-dom.development.js') {
 			res.writeHead(200, {
 				'Content-Type': 'application/javascript',
 			})
-			res.end(await readFile('./client.js', 'utf8'))
+			res.end(await readFile('./' + url.pathname, 'utf8'))
 			return
 		} else if (url.searchParams.has('jsx')) {
 			url.searchParams.delete('jsx')
@@ -238,6 +238,7 @@ async function sendHTML(res, jsx) {
 	const pos = html.indexOf('</body>')
 
 	let result = html.slice(0, pos)
+	// result += '<script src="./react-dom.development.js"></script>'
 	result += `<script type="importmap">
 	  {
 	    "imports": {
