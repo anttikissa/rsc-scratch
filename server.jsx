@@ -43,28 +43,6 @@ function throwNotFound(cause) {
 	throw notFound
 }
 
-function BlogLayout({ children }) {
-	const author = 'Jae Doe'
-	return <html><body>hello {author}</body></html>
-	// return (
-	// 	<html>
-	// 	<head>
-	// 		<title>My Blog</title>
-	// 	</head>
-	// 	<body>
-	// 	<nav>
-	// 		<a href="/">Home</a>
-	// 		<hr />
-	// 		<input type="text" placeholder="Search" />
-	// 		<hr />
-	// 	</nav>
-	// 	<main>{children}</main>
-	// 	<Footer author={author} />
-	// 	</body>
-	// 	</html>
-	// )
-}
-
 async function BlogIndexPage() {
 	const postFiles = await readdir('./posts')
 	const postSlugs = postFiles.map((file) =>
@@ -99,6 +77,28 @@ async function Post({ slug }) {
 			<article>{content}</article>
 		</section>
 	)
+}
+
+function BlogLayout({ children }) {
+	const author = 'Jae Doe'
+	return <html><body>hello {author}</body></html>
+	// return (
+	// 	<html>
+	// 	<head>
+	// 		<title>My Blog</title>
+	// 	</head>
+	// 	<body>
+	// 	<nav>
+	// 		<a href="/">Home</a>
+	// 		<hr />
+	// 		<input type="text" placeholder="Search" />
+	// 		<hr />
+	// 	</nav>
+	// 	<main>{children}</main>
+	// 	<Footer author={author} />
+	// 	</body>
+	// 	</html>
+	// )
 }
 
 function Footer({ author }) {
