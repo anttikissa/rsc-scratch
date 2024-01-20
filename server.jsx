@@ -174,7 +174,7 @@ async function renderJSXToHTML(jsx) {
 			html += childHtmls[i]
 			wasTextNode = isTextNode
 		}
-		return childHtmls.join('')
+		return html
 	} else if (typeof jsx === 'object') {
 		if (jsx.$$typeof === Symbol.for('react.element')) {
 			if (typeof jsx.type === 'string') {
