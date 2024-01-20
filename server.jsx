@@ -45,23 +45,24 @@ function throwNotFound(cause) {
 
 function BlogLayout({ children }) {
 	const author = 'Jae Doe'
-	return (
-		<html>
-			<head>
-				<title>My Blog</title>
-			</head>
-			<body>
-				<nav>
-					<a href="/">Home</a>
-					<hr />
-					<input type="text" placeholder="Search" />
-					<hr />
-				</nav>
-				<main>{children}</main>
-				<Footer author={author} />
-			</body>
-		</html>
-	)
+	return <html><body>hello {author}</body></html>
+	// return (
+	// 	<html>
+	// 	<head>
+	// 		<title>My Blog</title>
+	// 	</head>
+	// 	<body>
+	// 	<nav>
+	// 		<a href="/">Home</a>
+	// 		<hr />
+	// 		<input type="text" placeholder="Search" />
+	// 		<hr />
+	// 	</nav>
+	// 	<main>{children}</main>
+	// 	<Footer author={author} />
+	// 	</body>
+	// 	</html>
+	// )
 }
 
 async function BlogIndexPage() {
@@ -162,6 +163,17 @@ async function renderJSXToHTML(jsx) {
 		const childHtmls = await Promise.all(
 			jsx.map((child) => renderJSXToHTML(child))
 		)
+		let html = ''
+		let wasTextNode = false
+		let isTextNode = false
+		for (let i = 0; i < jsx.length; i++) {
+			isTextNode = typeof jsx[i] === 'string' || typeof jsx[i] === 'number'
+			if (wasTextNode && isTextNode) {
+				html += '<!-- -->'
+			}
+			html += childHtmls[i]
+			wasTextNode = isTextNode
+		}
 		return childHtmls.join('')
 	} else if (typeof jsx === 'object') {
 		if (jsx.$$typeof === Symbol.for('react.element')) {
@@ -219,11 +231,13 @@ function stringifyJSX(key, value) {
 	}
 }
 
-async function sendHTML(res, html) {
-	const htmlOutput = await renderJSXToHTML(html)
-	const pos = htmlOutput.indexOf('</body>')
+async function sendHTML(res, jsx) {
+	const html = await renderJSXToHTML(jsx)
+	const clientJSX = await renderJSXToClientJSX(jsx)
 
-	let result = htmlOutput.slice(0, pos)
+	const pos = html.indexOf('</body>')
+
+	let result = html.slice(0, pos)
 	result += `<script type="importmap">
 	  {
 	    "imports": {
@@ -232,8 +246,14 @@ async function sendHTML(res, html) {
 	    }
 	  }
 	</script>`
+
+	const clientJSXString = JSON.stringify(clientJSX, stringifyJSX)
+
+	result += `<script>window.__INITIAL_CLIENT_JSX_STRING__ = `
+	result += JSON.stringify(clientJSXString).replaceAll('<', '\\u003c')
+	result += `</script>`
 	result += `<script type="module" src="client.js"></script>`
-	result += htmlOutput.slice(pos)
+	result += html.slice(pos)
 
 	res.writeHead(200, {
 		'Content-Type': 'text/html',

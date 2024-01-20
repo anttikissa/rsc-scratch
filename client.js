@@ -3,7 +3,8 @@ import { hydrateRoot } from 'react-dom/client'
 const root = hydrateRoot(document, getInitialClientJSX())
 
 function getInitialClientJSX() {
-	// TODO
+	const clientJSX = JSON.parse(window.__INITIAL_CLIENT_JSX_STRING__, parseJSX)
+	return clientJSX
 }
 
 async function fetchClientJSX(pathname) {
