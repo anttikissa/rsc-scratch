@@ -2,7 +2,11 @@ import { createServer } from 'http'
 import { readdir, readFile } from 'fs/promises'
 import escapeHtml from 'escape-html'
 import sanitizeFilename from 'sanitize-filename'
+import { renderToString } from 'react-dom/server'
 
+function log(...args) {
+	return console.log(new Date().toISOString().replace('T', ' ').replace('Z', ''), ...args)
+}
 const server = createServer(async (req, res) => {
 	try {
 		const url = new URL(req.url, `http://${req.headers.host}`)
@@ -196,6 +200,8 @@ async function renderJSXToHTML(jsx) {
 				html += '</' + jsx.type + '>'
 				return html
 			} else if (typeof jsx.type === 'function') {
+				throw new Error('wont hapn')
+
 				const Component = jsx.type
 				const props = jsx.props
 				const returnedJsx = await Component(props)
@@ -210,8 +216,6 @@ async function renderJSXToHTML(jsx) {
 		throw new Error('not implemented')
 	}
 }
-
-const log = (...args) => console.log(...args)
 
 async function sendJSX(res, jsx) {
 	const clientJSX = await renderJSXToClientJSX(jsx)
@@ -231,8 +235,8 @@ function stringifyJSX(key, value) {
 }
 
 async function sendHTML(res, jsx) {
-	const html = await renderJSXToHTML(jsx)
 	const clientJSX = await renderJSXToClientJSX(jsx)
+	const html = renderToString(clientJSX)
 
 	const pos = html.indexOf('</body>')
 
@@ -262,5 +266,7 @@ async function sendHTML(res, jsx) {
 }
 
 server.listen(3000, () => {
-	console.log('Server listening on http://localhost:3000/')
+	log('Server listening on http://localhost:3000/')
 })
+
+log('server started')
